@@ -1,7 +1,0 @@
-torch
-gradio
-kaggle
-matplotlib
-torchmetrics
-mlxtend
-scikit-learn
