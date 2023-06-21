@@ -1,3 +1,6 @@
+"""
+Contains functions to download and setup the data
+"""
 import torchvision.transforms as T
 import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
@@ -14,11 +17,12 @@ def get_data_transforms():
     """
     Returns the data transforms for training and validation/testing.
 
-    :return: A tuple containing two transforms.
-             The first transform is for training data and
-             the second transform is for validation/testing data.
-    :rtype: tuple
-    :raises: None
+    Args:
+        None
+    
+    Returns:
+        train_transforms (torchvision.transforms.Compose): Transforms for training data
+        valid_n_test_transforms (torchvision.transforms.Compose): Transforms for validation and testing data
     """
     train_transforms = T.Compose([T.RandomResizedCrop(224),
                                       T.RandomRotation(35),
@@ -27,25 +31,27 @@ def get_data_transforms():
                                       T.ToTensor(),
                                       T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
 
-    valid_n_test_transforms = T.Compose([T.Resize((224,224)),
+    test_transforms = T.Compose([T.Resize((224,224)),
                                        T.ToTensor(),
                                        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
 
-    return train_transforms, valid_n_test_transforms
+    return train_transforms, test_transforms
 
 def download_and_extract_data():
     """
     Downloads the data from Kaggle and extracts it.
 
-    :return: The path to the extracted data.
-    :rtype: pathlib.Path
-    :raises: None
+    Args:
+        None
+    
+    Returns:
+        data_path (pathlib.Path): Path to the extracted data
     """
-    path = Path('kmader/food41')
     data_path = Path('data')
-    kaggle.api.dataset_download_cli(str(path))
     if not data_path.exists():
         os.mkdir(data_path)
+        path = Path('kmader/food41')
+        kaggle.api.dataset_download_cli(str(path))
         zipfile.ZipFile('food41.zip').extractall(data_path)
     return data_path
 
@@ -54,12 +60,14 @@ def setup_folder():
     Downloads and extracts the data, and sets up the folder structure
     for training and validation/testing.
 
-    :return: The path to the extracted data.
-    :rtype: pathlib.Path
-    :raises: None
+    Args:
+        None
+
+    Returns:
+        data_path (pathlib.Path): Path to the extracted data
     """
     data_path = download_and_extract_data()
-    if os.path.exists('data/train'):
+    if os.path.exists(data_path/'train'):
         return data_path
     
     with open(data_path/'meta/meta/train.json', 'r') as fp:
@@ -101,26 +109,24 @@ def setup_folder():
     shutil.rmtree(data_path/'images')
     return data_path
 
-def get_data_loaders(batch_size=64):
+def get_data_loaders(train_transforms, test_transforms, batch_size=64):
     """
     Returns the data loaders for training, validation, and testing.
 
-    :param batch_size: The batch size for the data loaders.
-    :type batch_size: int
-    :return: A tuple containing three data loaders.
-             The first data loader is for training data,
-             the second data loader is for validation data,
-             and the third data loader is for testing data. 
-             Each data loader is an instance of the `torch.utils.data.DataLoader` class.
-    :rtype: tuple
-    :raises: None
+    Args:
+        batch_size (int): Batch size for the data loaders
+        
+    Returns:
+        train_loader (torch.utils.data.DataLoader): Data loader for training data
+        valid_loader (torch.utils.data.DataLoader): Data loader for validation data
+        test_loader (torch.utils.data.DataLoader): Data loader for testing data
+        test_data (torchvision.datasets.ImageFolder): Testing data
     """
     data_path = setup_folder()
-    train_transforms, valid_n_test_transforms = get_data_transforms()
 
     train_data = datasets.ImageFolder(str(data_path/'train'), transform=train_transforms)
-    valid_data = datasets.ImageFolder(str(data_path/'valid'), transform=valid_n_test_transforms)
-    test_data = datasets.ImageFolder(str(data_path/'test'), transform=valid_n_test_transforms)
+    valid_data = datasets.ImageFolder(str(data_path/'valid'), transform=test_transforms)
+    test_data = datasets.ImageFolder(str(data_path/'test'), transform=test_transforms)
 
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     valid_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=False)
@@ -131,15 +137,14 @@ def get_metadata(dataset):
     """
     Returns the metadata for the dataset.
 
-    :param dataset: The dataset.
-    :type dataset: torch.utils.data.Dataset
-    :return: A tuple containing three items.
-             The first item is a list of class names.
-             The second item is a dictionary mapping class names to indices.
-             The third item is a dictionary mapping indices to class names.
-    :rtype: tuple
-    :raises: None
+    Args:
+        dataset (torchvision.datasets.ImageFolder): Dataset for which metadata is required
+    
+    Returns:
+        classes (list): List of class names
+        class_to_idx (dict): Dictionary mapping class names to indices
+        idx_to_class (dict): Dictionary mapping indices to class names
     """
-    classess, class_to_idx = dataset.classes, dataset.class_to_idx
+    classes, class_to_idx = dataset.classes, dataset.class_to_idx
     idx_to_class = {value: key for key, value in class_to_idx.items()}
-    return classess, class_to_idx, idx_to_class
+    return classes, class_to_idx, idx_to_class
