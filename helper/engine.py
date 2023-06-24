@@ -6,6 +6,8 @@ import gc
 import torch
 import torchmetrics
 from tqdm.auto import tqdm
+from datetime import datetime
+import os
 
 def cuda_collect():
     """
@@ -19,7 +21,7 @@ def train_step(model: torch.nn.Module,
                loss_fn: torch.nn.Module,
                optimizer: torch.optim.Optimizer,
                scheduler: torch.optim.lr_scheduler.LRScheduler,
-               accuracy_fn: torchmetrics.Accuracy,
+               accuracy_fn: torchmetrics.Metric,
                device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
     train_loss, train_acc = 0, 0
     model.train()
@@ -65,7 +67,7 @@ def train_step(model: torch.nn.Module,
 def test_step(model: torch.nn.Module,
                data_loader: torch.utils.data.DataLoader,
                loss_fn: torch.nn.Module,
-               accuracy_fn: torchmetrics.Accuracy,
+               accuracy_fn: torchmetrics.Metric,
                device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
     test_loss, test_acc = 0, 0
     model.eval()
@@ -93,16 +95,55 @@ def test_step(model: torch.nn.Module,
         print(f"Test loss: {test_loss:.5f} | Test accuracy: {test_acc:.2f}")
     return test_loss.cpu(), test_acc.cpu()
 
+def create_writer(experiment_name: str, 
+                  model_name: str, 
+                  extra: str=None) -> torch.utils.tensorboard.writer.SummaryWriter():
+    """Creates a torch.utils.tensorboard.writer.SummaryWriter() instance saving to a specific log_dir.
+
+    log_dir is a combination of runs/timestamp/experiment_name/model_name/extra.
+
+    Where timestamp is the current date in YYYY-MM-DD format.
+
+    Args:
+        experiment_name (str): Name of experiment.
+        model_name (str): Name of model.
+        extra (str, optional): Anything extra to add to the directory. Defaults to None.
+
+    Returns:
+        torch.utils.tensorboard.writer.SummaryWriter(): Instance of a writer saving to log_dir.
+
+    Example usage:
+        # Create a writer saving to "runs/2022-06-04/data_10_percent/effnetb2/5_epochs/"
+        writer = create_writer(experiment_name="data_10_percent",
+                               model_name="effnetb2",
+                               extra="5_epochs")
+        # The above is the same as:
+        writer = SummaryWriter(log_dir="runs/2022-06-04/data_10_percent/effnetb2/5_epochs/")
+    """
+
+    # Get timestamp of current date (all experiments on certain day live in same folder)
+    timestamp = datetime.now().strftime("%Y-%m-%d") # returns current date in YYYY-MM-DD format
+
+    if extra:
+        # Create log directory path
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name, extra)
+    else:
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name)
+        
+    print(f"[INFO] Created SummaryWriter, saving to: {log_dir}...")
+    return SummaryWriter(log_dir=log_dir)
+
 def train(model: torch.nn.Module,
           train_loader: torch.utils.data.DataLoader,
           valid_loader: torch.utils.data.DataLoader,
           loss_fn: torch.nn.Module,
           optimizer: torch.optim.Optimizer,
           scheduler: torch.optim.lr_scheduler.LRScheduler,
-          accuracy_fn: torchmetrics.Accuracy,
+          accuracy_fn: torchmetrics.Metric,
           device: torch.device,
           epochs: int,
-          threshold: List[float]) -> Dict[str, List[torch.Tensor]]:
+          writer: torch.utils.tensorboard.SummaryWriter = None,
+          threshold: List[float] = [0]) -> Dict[str, List[torch.Tensor]]:
     """
     Trains the model and evaluates it on the validation set.
     
@@ -116,7 +157,9 @@ def train(model: torch.nn.Module,
         accuracy_fn (torchmetrics.Accuracy): Accuracy function
         device (torch.device): Device to run the training on
         epochs (int): Number of epochs to train the model for
-        threshold (float): Threshold for early stopping
+        writer (torch.utils.tensorboard.SummaryWriter): SummaryWriter instance. Defaults to None.
+        threshold (List[float], optional): Threshold for early stopping. Defaults to [0].
+                                           Value is put inside a list for easy conversion to torch.Tensor.
     
     Returns:
         Dictionary containing training and validation losses and accuracies for each epoch.
@@ -135,6 +178,10 @@ def train(model: torch.nn.Module,
     
     tolerance = 0
     threshold = torch.Tensor(threshold)
+    if writer:
+        writer.add_graph(model=model, 
+                         input_to_model=torch.randn(32, 3, 224, 224).to(device))
+
     for epoch in tqdm(range(epochs)):
         train_loss, train_acc = train_step(model, train_loader, loss_fn, optimizer, scheduler, accuracy_fn, device)
         valid_loss, valid_acc = test_step(model, valid_loader, loss_fn, accuracy_fn, device)
@@ -149,6 +196,22 @@ def train(model: torch.nn.Module,
         results["train_accuracies"].append(train_acc.cpu())
         results["valid_losses"].append(valid_loss.detach())
         results["valid_accuracies"].append(valid_acc.cpu())
+
+        # Tensorboard logging
+        if writer:
+            # Add results to SummaryWriter
+            writer.add_scalars(main_tag="Loss", 
+                               tag_scalar_dict={"train_loss": train_loss,
+                                                "test_loss": test_loss},
+                               global_step=epoch)
+            writer.add_scalars(main_tag="Accuracy", 
+                               tag_scalar_dict={"train_acc": train_acc,
+                                                "test_acc": test_acc}, 
+                               global_step=epoch)
+
+            # Close the writer
+            writer.close()
+
         if len(results["valid_losses"]) > 1 and results["valid_losses"][-2] - results["valid_losses"][-1] < threshold:
             tolerance += 1
             if tolerance > 2:

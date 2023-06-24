@@ -109,12 +109,15 @@ def setup_folder():
     shutil.rmtree(data_path/'images')
     return data_path
 
-def get_data_loaders(train_transforms, test_transforms, batch_size=64):
+def get_data_loaders(train_transforms, test_transforms, batch_size=64, num_workers=0):
     """
     Returns the data loaders for training, validation, and testing.
 
     Args:
+        train_transforms (torchvision.transforms.Compose): Transforms for training data
+        test_transforms (torchvision.transforms.Compose): Transforms for validation and testing data
         batch_size (int): Batch size for the data loaders
+        num_workers (int): Number of workers for the data loaders
         
     Returns:
         train_loader (torch.utils.data.DataLoader): Data loader for training data
@@ -128,9 +131,9 @@ def get_data_loaders(train_transforms, test_transforms, batch_size=64):
     valid_data = datasets.ImageFolder(str(data_path/'valid'), transform=test_transforms)
     test_data = datasets.ImageFolder(str(data_path/'test'), transform=test_transforms)
 
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    valid_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     return train_loader, valid_loader, test_loader, test_data
 
 def get_metadata(dataset):
