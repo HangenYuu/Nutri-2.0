@@ -8,6 +8,7 @@ import torchmetrics
 from tqdm.auto import tqdm
 from datetime import datetime
 import os
+from torch.utils.tensorboard import SummaryWriter
 
 def cuda_collect():
     """
@@ -202,11 +203,11 @@ def train(model: torch.nn.Module,
             # Add results to SummaryWriter
             writer.add_scalars(main_tag="Loss", 
                                tag_scalar_dict={"train_loss": train_loss,
-                                                "test_loss": test_loss},
+                                                "test_loss": valid_loss},
                                global_step=epoch)
             writer.add_scalars(main_tag="Accuracy", 
                                tag_scalar_dict={"train_acc": train_acc,
-                                                "test_acc": test_acc}, 
+                                                "test_acc": valid_acc}, 
                                global_step=epoch)
 
             # Close the writer
