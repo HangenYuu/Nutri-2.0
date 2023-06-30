@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 import gc
 import torch
 import torchmetrics
-from tqdm.auto import tqdm
+from tqdm import tqdm
 from datetime import datetime
 import os
 from torch.utils.tensorboard import SummaryWriter
@@ -73,7 +73,7 @@ def test_step(model: torch.nn.Module,
     test_loss, test_acc = 0, 0
     model.eval()
     # Turn on inference context manager
-    with torch.inference_mode():
+    with torch.no_grad():
         for images, labels in tqdm(data_loader,
                                     total=len(data_loader),
                                     desc='Making predictions:'):
@@ -98,7 +98,7 @@ def test_step(model: torch.nn.Module,
 
 def create_writer(experiment_name: str, 
                   model_name: str, 
-                  extra: str=None) -> torch.utils.tensorboard.writer.SummaryWriter():
+                  extra: str = '') -> torch.utils.tensorboard.writer.SummaryWriter():
     """Creates a torch.utils.tensorboard.writer.SummaryWriter() instance saving to a specific log_dir.
 
     log_dir is a combination of runs/timestamp/experiment_name/model_name/extra.
@@ -183,7 +183,7 @@ def train(model: torch.nn.Module,
         writer.add_graph(model=model, 
                          input_to_model=torch.randn(32, 3, 224, 224).to(device))
 
-    for epoch in tqdm(range(epochs)):
+    for epoch in range(epochs):
         train_loss, train_acc = train_step(model, train_loader, loss_fn, optimizer, scheduler, accuracy_fn, device)
         valid_loss, valid_acc = test_step(model, valid_loader, loss_fn, accuracy_fn, device)
         print(
