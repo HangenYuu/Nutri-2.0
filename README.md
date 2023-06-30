@@ -2,7 +2,7 @@
 
 ## Part 1
 
-My evolving first personal in deep learning, specifically in image classification. The biggest objective is to teach me PyTorch. This can be divided into finer objectives:
+My evolving first personal in deep learning, specifically in image classification. The biggest objective is to **teach me PyTorch**. This can be divided into finer objectives:
 
 1. Finish the process of training a model end-to-end, which includes:
    1. Get the data.
@@ -40,3 +40,6 @@ In production i.e., where it actually matters for many people, training and savi
 
 Hence, for someone wanting to become an MLE (such as the writer), learning how to train a model is not enough. I also need to learn how to **deploy**, **monitor**, and **maintain** the model.
 
+So again, the biggest objective is to **teach me MLOps** (at least the part that you can learn before going into a job). The finer objectives are:
+
+1. Migrating to PyTorch Lightning instead of PyTorch.
